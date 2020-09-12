@@ -19,12 +19,16 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include "./command.h"
+#include <unistd.h>
+#include "command.h"
+#include "trace.h"
 
 short int getNextCommand(Commands * commands)
 {
   unsigned short int index;
   short int found = -1;
+
+  TRAP(commands == NULL, "Incoming argument pointer to commands is NULL.\n");
 
   if (commands->length == 0)
   {
@@ -43,42 +47,41 @@ short int getNextCommand(Commands * commands)
   return found;
 }
 
-void readCommandsFromFile(Commands * commands, char * fn, const unsigned short int debugMode)
+void readCommandsFromFile(Commands * commands, char * fn)
 {
-  int ch;
   FILE * fp;
-  char chunk[32];
+  char chunk[MAX_COMMAND_STRING_LENGTH];
   int i = 0;
+  int iret = -1;
+
+  TRAP(commands == NULL, "Incoming argument pointer to commands is NULL.\n");
+  TRAP(fn == NULL, "Incoming argument pointer to filename is NULL.\n");
+
+  iret = access(fn, R_OK);
+  if (iret != 0) {
+      ERROR_TRACE("Cannot access %s input file. Last system error description: %s\n",
+        fn, trace_strerror(errno));
+      return;
+  }
   
   fp = fopen(fn, "r");
-
-  if ( fp == NULL)
+  if (fp == NULL)
   {
-    fp = fopen(fn, "w");
-
-    if(fp == NULL)
-    {
-        fprintf(stderr, "%s %s\n", strerror(errno), fn);
-        return;
-    }
-    fclose(fp);
-    fp = fopen(fn, "r");
-    if(fp == NULL)
-    {
-        fprintf(stderr, "%s %s\n", strerror(errno), fn);
-        return;
-    }
+      ERROR_TRACE("Cannot open %s input file. Last system error description: %s\n",
+        fn, trace_strerror(errno));
+      return;
   }
   
   while (fgets(chunk, sizeof(chunk), fp) != NULL)
   {
-    if (strlen(chunk) > 1)
+    size_t chunk_size = strlen(chunk);
+    if (chunk_size > 1)
     {
-      strncpy(commands->items[i].value, chunk, strlen(chunk) - 1);
+      strncpy(commands->items[i].value, chunk, chunk_size - 1);
+      commands->items[i].value[chunk_size - 1] = '\0';
       
-      if (debugMode) {
-        printf("***commands.c: new command - %s\n", commands->items[i].value);
-      }
+      DEBUG_TRACE("%s:%s: new command - '%s'.\n",
+        __FILENAME__, __func__, commands->items[i].value);
 
       commands->items[i].done = 0;
       commands->items[i].id = i + 1;
@@ -89,16 +92,17 @@ void readCommandsFromFile(Commands * commands, char * fn, const unsigned short i
 
   commands->length = i;
 
-  if (fclose(fp) != 0)
-  {
-    fprintf(stderr, "Close commands file failed: %s\n", strerror(errno));
-    exit(-1);
-  }
+  TRAP(fclose(fp) != 0, "Cannot close commands file.\n");
 }
 
-void readCommandsFromString(Commands * commands, char * command, const unsigned short int debugMode)
+void readCommandsFromString(Commands * commands, char * command)
 {
-  int i = commands->length;
+  int i = 0;
+
+  TRAP(commands == NULL, "Incoming argument pointer to commands is NULL.\n");
+  TRAP(command == NULL, "Incoming argument pointer to command string is NULL.\n");
+
+  i = commands->length;
   if (i >= MAX_COMMAND_QUEUE_LENGTH)
   {
     i = 0;
@@ -106,11 +110,11 @@ void readCommandsFromString(Commands * commands, char * command, const unsigned 
 
   commands->length = i + 1;
   
-  sprintf(commands->items[i].value, "%s", command);
+  snprintf(commands->items[i].value, MAX_COMMAND_STRING_LENGTH, "%s", command);
+  commands->items[i].value[MAX_COMMAND_STRING_LENGTH - 1] = '\0';
   commands->items[i].done = 0;
   commands->items[i].id = i + 1;
 
-  if (debugMode) {
-    printf("***commands.c: new command - %s\n", commands->items[i].value);
-  }
+  DEBUG_TRACE("%s:%s: new command - '%s'.\n",
+    __FILENAME__, __func__, commands->items[i].value);
 }

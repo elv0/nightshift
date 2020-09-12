@@ -32,6 +32,7 @@
 #include "answer.h"
 #include "command.h"
 #include "nightshift-mqtt.h"
+#include "trace.h"
 
 #define SA struct sockaddr
 #define DEFAULT_PORT 1111
@@ -263,8 +264,8 @@ void mqtt_connect_callback(struct mosquitto *mosq, void *obj, int result)
 
 void mqtt_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
 {
-	pthread_mutex_lock(&writelock);
-  readCommandsFromString(commands, (char *)message->payload, GlobalArgs.debug);
+  pthread_mutex_lock(&writelock);
+  readCommandsFromString(commands, (char *)message->payload);
   pthread_mutex_unlock(&writelock);
 }
 
@@ -438,6 +439,7 @@ int main(int argc, char **argv)
 
       case 'd':
         GlobalArgs.debug = 1;
+        set_debug_traces(true);
         break;
 
       default:

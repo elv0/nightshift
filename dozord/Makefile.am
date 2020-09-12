@@ -1,7 +1,7 @@
 AUTOMAKE_OPTS = gnu
 bin_PROGRAMS = dozord
 
-dozord_SOURCES = dozord.c answer.c command.c answer.h command.h nightshift-mqtt.h
+dozord_SOURCES = dozord.c answer.c command.c trace.c answer.h command.h trace.h nightshift-mqtt.h
 dozord_LDADD = ../libdozor/libdozor.la -lpthread -lmosquitto
 dozord_CFLAGS = -pthread
 
